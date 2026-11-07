@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 from typing import Literal
+from fastapi import UploadFile, File
 
 app = FastAPI()
 
@@ -50,5 +51,13 @@ def create_document(document: DocumentCreate):
     }
 
     documents.append(new_document)
-
     return new_document
+
+@app.post("/upload")  #This endpoint only receives the file. It does not save it to computer yet.
+async def upload_document(file: UploadFile = File(...)):
+
+    return {
+        "filename": file.filename,
+        "content_type": file.content_type,
+        "message": "File received successfully"
+    }

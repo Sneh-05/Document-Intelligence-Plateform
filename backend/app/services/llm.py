@@ -64,15 +64,3 @@ Answer:"""
             
             print(f"Network error on attempt {attempt}/{max_retries}. Retrying in 3s...")
             time.sleep(3)
-
-
-if __name__ == "__main__":
-    sample_chunks = [
-        "The contract was signed in January 2020.",
-        "Payment terms are net 30 days.",
-        "This agreement is governed by the laws of New York."
-    ]
-
-    query = "What are the payment terms?"
-    answer = generate_answer(query, sample_chunks)
-    print("Answer:", answer)

@@ -1,4 +1,5 @@
 import streamlit as st
+import requests
 from pathlib import Path
 import sys
 
@@ -8,6 +9,7 @@ import sys
 
 PROJECT_PATH = Path(__file__).resolve().parent.parent
 BACKEND_APP_PATH = PROJECT_PATH / "backend" / "app"
+BACKEND_URL = "http://127.0.0.1:8000"
 
 sys.path.insert(0, str(BACKEND_APP_PATH))
 
@@ -17,7 +19,6 @@ try:
 except Exception as e:
     extract_text = None
     import_error = str(e)
-
 
 # ==========================================
 # PAGE CONFIGURATION
@@ -29,7 +30,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
 
 # ==========================================
 # CUSTOM CSS
@@ -113,7 +113,6 @@ st.markdown("""
     margin-top: 28px;
 }
 
-/* All action buttons */
 .stButton > button,
 .stDownloadButton > button {
     background: linear-gradient(90deg, #536DFE, #6875F5) !important;
@@ -124,13 +123,11 @@ st.markdown("""
     padding: 10px 22px !important;
 }
 
-/* Button text visibility */
 .stButton > button *,
 .stDownloadButton > button * {
     color: #FFFFFF !important;
 }
 
-/* Hover effect */
 .stButton > button:hover,
 .stDownloadButton > button:hover {
     background: #4055D6 !important;
@@ -163,7 +160,6 @@ st.markdown("""
     opacity: 1 !important;
 }
 
-/* Browse Files button */
 [data-testid="stFileUploaderDropzone"] button {
     background: #536DFE !important;
     color: #FFFFFF !important;
@@ -171,18 +167,17 @@ st.markdown("""
     border-radius: 9px !important;
 }
 
-/* Uploaded file name */
 [data-testid="stFileUploader"] small,
 [data-testid="stFileUploader"] [data-testid="stFileUploaderFileName"] {
     color: #FFFFFF !important;
     opacity: 1 !important;
 }
 
-/* Uploaded file details */
 [data-testid="stFileUploader"] [data-testid="stFileUploaderFile"] * {
     color: #FFFFFF !important;
     opacity: 1 !important;
 }
+
 [data-testid="stFileUploader"] small {
     color: #DCE7F7 !important;
 }
@@ -196,29 +191,25 @@ st.markdown("""
 h1, h2, h3, p, label {
     color: #F8FAFC;
 }
-/* Remove white Streamlit header */
+
 [data-testid="stHeader"] {
     background: transparent !important;
 }
 
-/* Match toolbar with dark theme */
 [data-testid="stToolbar"] {
     background: transparent !important;
 }
 
-/* Remove top decoration */
 [data-testid="stDecoration"] {
     display: none !important;
 }
 
-/* Main app background */
 [data-testid="stAppViewContainer"] {
     background: linear-gradient(135deg, #080E1B, #101D35);
 }
 
 </style>
 """, unsafe_allow_html=True)
-
 
 # ==========================================
 # SIDEBAR
@@ -251,7 +242,6 @@ with st.sidebar:
         "</p>",
         unsafe_allow_html=True
     )
-
 
 # ==========================================
 # DASHBOARD
@@ -301,10 +291,9 @@ if page == "Dashboard":
     )
 
     st.info(
-        "Navigate to Documents to upload a PDF or DOCX file "
-        "and extract its text."
+        "Navigate to Documents to upload a PDF or DOCX file, "
+        "then go to AI Assistant to ask questions about it."
     )
-
 
 # ==========================================
 # DOCUMENT WORKSPACE
@@ -313,10 +302,7 @@ if page == "Dashboard":
 elif page == "Documents":
 
     st.title("📁 Document Workspace")
-
-    st.write(
-        "Upload your PDF or DOCX document to extract its text."
-    )
+    st.write("Upload your PDF or DOCX document to extract and index its text.")
 
     uploaded_file = st.file_uploader(
         "Choose a document",
@@ -328,73 +314,81 @@ elif page == "Documents":
 
         st.success(f"Uploaded: {uploaded_file.name}")
 
-        if st.button("⚡ Extract Text", key="extract_button"):
+        if st.button("⚡ Extract & Index", key="extract_button"):
 
             if extract_text is None:
-
-                st.error(
-                    f"Document processor import failed: {import_error}"
-                )
+                st.error(f"Document processor import failed: {import_error}")
 
             else:
-
                 try:
-
+                    # 1. Save file temporarily
                     temp_dir = PROJECT_PATH / "frontend" / "temp_uploads"
                     temp_dir.mkdir(exist_ok=True)
-
                     file_path = temp_dir / uploaded_file.name
+                    file_path.write_bytes(uploaded_file.getvalue())
 
-                    file_path.write_bytes(
-                        uploaded_file.getvalue()
+                    # 2. Extract text
+                    with st.spinner("Extracting text..."):
+                        extracted_text = extract_text(str(file_path))
+
+                    if not extracted_text.strip():
+                        st.warning("No text found in this document. Scanned PDFs may require OCR.")
+                    else:
+                        st.session_state["extracted_text"] = extracted_text
+                        st.session_state["document_name"] = uploaded_file.name
+
+                        # 3. Register document in DB via backend
+                        file_type = uploaded_file.name.split(".")[-1].lower()
+                        with st.spinner("Registering document..."):
+                            reg_response = requests.post(
+                                f"{BACKEND_URL}/documents",
+                                json={
+                                    "title": uploaded_file.name,
+                                    "file_type": file_type
+                                }
+                            )
+                            reg_response.raise_for_status()
+                            doc_data = reg_response.json()
+                            document_id = doc_data["id"]
+                            st.session_state["document_id"] = document_id
+
+                        # 4. Send extracted text to backend for chunking + indexing
+                        with st.spinner("Indexing document for AI search..."):
+                            index_response = requests.post(
+                                f"{BACKEND_URL}/documents/{document_id}/index",
+                                json={"text": extracted_text}
+                            )
+                            index_response.raise_for_status()
+                            index_data = index_response.json()
+
+                        st.success(
+                            f"Document indexed successfully! "
+                            f"{index_data['chunks_created']} chunks created. "
+                            f"You can now ask questions in the AI Assistant."
+                        )
+
+                except requests.exceptions.ConnectionError:
+                    st.error(
+                        "Cannot connect to backend. "
+                        "Make sure the FastAPI server is running: "
+                        "uvicorn main:app --reload"
                     )
-
-                    extracted_text = extract_text(str(file_path))
-
-                    st.session_state["extracted_text"] = extracted_text
-                    st.session_state["document_name"] = uploaded_file.name
-
-                    st.success("Document text extracted successfully!")
-
                 except Exception as e:
-
-                    st.error(f"Extraction failed: {e}")
+                    st.error(f"Processing failed: {e}")
 
     if st.session_state.get("extracted_text"):
 
-        st.markdown(
-            '<p class="section-title">Extracted Content</p>',
-            unsafe_allow_html=True
-        )
-
-        st.caption(
-            st.session_state.get("document_name", "")
-        )
+        st.markdown('<p class="section-title">Extracted Content</p>', unsafe_allow_html=True)
+        st.caption(st.session_state.get("document_name", ""))
 
         extracted_text = st.session_state["extracted_text"]
-
-        if extracted_text.strip():
-
-            st.text_area(
-                "Document Text",
-                value=extracted_text,
-                height=350
-            )
-
-            st.download_button(
-                "Download Extracted Text",
-                data=extracted_text,
-                file_name="extracted_text.txt",
-                mime="text/plain"
-            )
-
-        else:
-
-            st.warning(
-                "No text was found in this document. "
-                "Scanned PDFs may require OCR."
-            )
-
+        st.text_area("Document Text", value=extracted_text, height=350)
+        st.download_button(
+            "Download Extracted Text",
+            data=extracted_text,
+            file_name="extracted_text.txt",
+            mime="text/plain"
+        )
 
 # ==========================================
 # AI ASSISTANT
@@ -403,29 +397,53 @@ elif page == "Documents":
 elif page == "AI Assistant":
 
     st.title("🤖 AI Document Assistant")
+    st.write("Ask questions about your uploaded document.")
 
-    st.write(
-        "Interact with your documents using intelligent AI assistance."
-    )
+    # Check if a document has been indexed in this session
+    document_id = st.session_state.get("document_id")
+    document_name = st.session_state.get("document_name")
 
-    st.info(
-        "AI question-answering will be available after "
-        "the RAG and AI backend integration."
-    )
+    if not document_id:
+        st.warning(
+            "No document indexed yet. "
+            "Go to Documents, upload a file, and click Extract & Index first."
+        )
+    else:
+        st.info(f"Active document: **{document_name}** (ID: {document_id})")
 
-    question = st.text_input(
-        "Ask your question",
-        placeholder="What is this document about?"
-    )
+        question = st.text_input(
+            "Ask your question",
+            placeholder="What are the payment terms?"
+        )
 
-    if st.button("Ask AI"):
+        if st.button("Ask AI"):
 
-        if question.strip():
+            if not question.strip():
+                st.warning("Please enter a question.")
 
-            st.warning(
-                "AI answering functionality is coming soon."
-            )
+            else:
+                try:
+                    with st.spinner("Thinking..."):
+                        response = requests.post(
+                            f"{BACKEND_URL}/query",
+                            json={
+                                "document_id": document_id,
+                                "query": question
+                            }
+                        )
+                        response.raise_for_status()
+                        result = response.json()
 
-        else:
+                    st.markdown('<p class="section-title">Answer</p>', unsafe_allow_html=True)
+                    st.write(result["answer"])
 
-            st.warning("Please enter a question.")
+                except requests.exceptions.ConnectionError:
+                    st.error(
+                        "Cannot connect to backend. "
+                        "Make sure the FastAPI server is running: "
+                        "uvicorn main:app --reload"
+                    )
+                except requests.exceptions.HTTPError as e:
+                    st.error(f"Backend error: {e.response.json().get('detail', str(e))}")
+                except Exception as e:
+                    st.error(f"Something went wrong: {e}")

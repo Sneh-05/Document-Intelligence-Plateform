@@ -4,9 +4,9 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 
-# ==================================================
+
 # DATABASE CONFIGURATION
-# ==================================================
+
 
 # Project root directory
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -19,9 +19,7 @@ DATABASE_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATABASE_DIR / "documents.db"
 
 
-# ==================================================
 # DATABASE CONNECTION
-# ==================================================
 
 def get_connection():
 
@@ -31,9 +29,9 @@ def get_connection():
     return conn
 
 
-# ==================================================
+
 # INITIALIZE DATABASE
-# ==================================================
+
 
 def init_db():
 
@@ -65,9 +63,9 @@ def init_db():
         conn.close()
 
 
-# ==================================================
+
 # INSERT DOCUMENT
-# ==================================================
+
 
 def insert_document(
     title: str,
@@ -111,9 +109,9 @@ def insert_document(
         conn.close()
 
 
-# ==================================================
+
 # GET ALL DOCUMENTS
-# ==================================================
+
 
 def get_all_documents():
 
@@ -136,9 +134,9 @@ def get_all_documents():
         conn.close()
 
 
-# ==================================================
+
 # GET DOCUMENT BY ID
-# ==================================================
+
 
 def get_document_by_id(document_id: int):
 
@@ -161,9 +159,9 @@ def get_document_by_id(document_id: int):
         conn.close()
 
 
-# ==================================================
+
 # UPDATE DOCUMENT STATUS
-# ==================================================
+
 
 def update_document_status(
     document_id: int,

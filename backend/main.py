@@ -18,9 +18,9 @@ from app.database.database import (
 import os
 
 
-# ==================================================
+
 # APPLICATION CONFIGURATION
-# ==================================================
+
 
 app = FastAPI(
     title="NEXOR - Document Intelligence Platform",
@@ -35,9 +35,9 @@ init_db()
 active_document_id = None
 
 
-# ==================================================
+
 # REQUEST AND RESPONSE SCHEMAS
-# ==================================================
+
 
 class DocumentCreate(BaseModel):
     title: str = Field(min_length=3, max_length=100)
@@ -60,9 +60,9 @@ class QueryRequest(BaseModel):
     query: str = Field(min_length=1, max_length=2000)
 
 
-# ==================================================
+
 # HOME AND HEALTH ROUTES
-# ==================================================
+
 
 @app.get("/")
 def home():
@@ -82,9 +82,9 @@ def health_check():
     }
 
 
-# ==================================================
+
 # DOCUMENT METADATA ROUTES
-# ==================================================
+
 
 @app.get("/documents")
 def get_documents():
@@ -130,9 +130,9 @@ def create_document(document: DocumentCreate):
         ) from error
 
 
-# ==================================================
+
 # DOCUMENT INDEXING ROUTE
-# ==================================================
+
 
 @app.post("/documents/{document_id}/index")
 def index_uploaded_document(
@@ -186,9 +186,9 @@ def index_uploaded_document(
         ) from error
 
 
-# ==================================================
+
 # AI QUESTION-ANSWERING ROUTE
-# ==================================================
+
 
 @app.post("/query")
 def query_document(request: QueryRequest):
@@ -239,9 +239,9 @@ def query_document(request: QueryRequest):
         ) from error
 
 
-# ==================================================
+
 # FILE UPLOAD CONFIGURATION
-# ==================================================
+
 
 BASE_DIR = os.path.dirname(
     os.path.dirname(os.path.abspath(__file__))
@@ -259,9 +259,9 @@ ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt"}
 MAX_FILE_SIZE = 10 * 1024 * 1024
 
 
-# ==================================================
+
 # DOCUMENT UPLOAD AND TEXT EXTRACTION
-# ==================================================
+
 
 @app.post("/upload", status_code=201)
 async def upload_document(file: UploadFile = File(...)):

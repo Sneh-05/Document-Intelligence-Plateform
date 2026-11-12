@@ -1,220 +1,247 @@
-# 📄 Document Intelligence Platform
+# NEXOR – Document Intelligence Platform
 
-An AI-powered document processing and question-answering platform designed to extract, organize, and retrieve meaningful information from documents using **Retrieval-Augmented Generation (RAG)**.
+**An AI-powered platform for intelligent document processing, semantic search, and question answering using Retrieval-Augmented Generation (RAG).**
 
-The platform aims to allow users to upload documents, process their content, and interact with them through natural-language queries instead of manually searching through lengthy files.
+NEXOR is a Document Intelligence Platform that allows users to upload multiple documents, extract their content, and ask questions using natural language. It retrieves relevant information from uploaded documents through semantic search and generates context-aware answers using an LLM.
 
-## 🚀 Project Overview
+The platform combines **FastAPI, Streamlit, Sentence Transformers, FAISS, SQLite, and an LLM API** to provide an intelligent document question-answering experience.
 
-The Document Intelligence Platform is designed to simplify document analysis by combining document processing, semantic search, and Large Language Models (LLMs).
+---
 
-It follows a custom RAG architecture to retrieve relevant information from uploaded documents and generate context-aware responses.
+## Key Features
 
-The project uses **FastAPI** for backend API development and aims to implement the RAG pipeline from scratch without relying on frameworks such as LangChain or LlamaIndex.
+- **Multi-format Document Upload:** Upload PDF, DOCX, and TXT files.
+- **Text Extraction:** Automatically extract text from uploaded documents.
+- **Document Management:** View, manage, and delete uploaded documents.
+- **Automatic Indexing:** Process uploaded documents and convert their content into searchable chunks.
+- **Semantic Search:** Retrieve relevant document content using Sentence Transformers and FAISS.
+- **Multi-document RAG:** Ask questions across all indexed documents or select specific documents.
+- **AI-powered Question Answering:** Generate context-aware answers using an LLM API.
+- **Source Tracking:** View the source documents and similarity scores associated with retrieved information.
+- **Context-aware Responses:** Avoid unsupported answers when the requested information is not available in indexed documents.
+- **Interactive Dashboard:** Monitor document statistics and backend status through a Streamlit interface.
 
-## ✨ Key Features
+---
 
-### Implemented
-- **REST API Development:** Backend APIs developed using FastAPI.
-- **Health Check:** Endpoint to verify backend availability.
-- **Document Management API:** Initial endpoint for retrieving document records.
-- **Request Validation:** Pydantic models for validating incoming API data.
-- **Interactive API Documentation:** Automatic Swagger UI documentation through FastAPI.
+## Technology Stack
 
-### Planned Features
-- **Document Upload:** Upload PDF and DOCX files.
-- **Text Extraction:** Extract textual content using PyMuPDF and python-docx.
-- **Text Chunking:** Divide extracted content into smaller, meaningful chunks.
-- **Vector Embeddings:** Generate semantic embeddings using Sentence Transformers.
-- **Vector Database:** Store and retrieve document embeddings using FAISS.
-- **Semantic Search:** Retrieve relevant document sections based on user queries.
-- **RAG-based Question Answering:** Generate context-aware answers using the Gemini API.
-- **Document Summarization:** Generate concise summaries of uploaded documents.
-- **Information Extraction:** Extract important information from documents.
-- **Source References:** Provide references to relevant document sections.
-- **Document Management:** Maintain document metadata using SQLite.
-
-## 🛠️ Technology Stack
-
-| Technology | Purpose |
+| Component | Technology |
 |---|---|
-| Python | Core programming language |
-| FastAPI | Backend REST API development |
-| Pydantic | Data validation and schemas |
-| Uvicorn | ASGI server |
-| PyMuPDF | PDF text extraction |
-| python-docx | DOCX processing |
-| Sentence Transformers | Text embeddings |
-| FAISS | Vector similarity search |
-| Gemini API | LLM-based response generation |
-| SQLite | Document metadata storage |
-| Streamlit | Frontend interface |
+| Frontend | Streamlit |
+| Backend | Python, FastAPI |
+| API Communication | REST APIs |
+| Document Processing | PyPDF, python-docx |
+| Text Embeddings | Sentence Transformers |
+| Embedding Model | all-MiniLM-L6-v2 |
+| Vector Database / Search | FAISS |
+| Metadata Storage | SQLite |
+| LLM Integration | Coforge LLM Router API |
+| Version Control | Git and GitHub |
 
-## 🏗️ Project Architecture
+---
 
-The planned workflow follows these stages:
+## System Architecture
 
-1. **Document Upload:** User uploads a PDF or DOCX document.
-2. **Text Extraction:** Extract textual content from the uploaded document.
-3. **Text Chunking:** Split the extracted content into smaller chunks.
-4. **Embedding Generation:** Convert chunks into numerical vector representations.
-5. **Vector Storage:** Store embeddings in the FAISS index.
-6. **Query Processing:** Convert the user's question into an embedding.
-7. **Context Retrieval:** Retrieve the most relevant document chunks.
-8. **Response Generation:** Pass the retrieved context to Gemini to generate an answer.
-9. **Response Delivery:** Return the answer along with relevant source references.
+The platform follows a Retrieval-Augmented Generation (RAG) workflow.
 
-## 🔄 RAG Workflow
+1. **Document Upload:** Users upload PDF, DOCX, or TXT documents through the frontend.
+2. **Text Extraction:** The backend extracts textual content from the uploaded files.
+3. **Text Chunking:** Extracted text is divided into smaller, overlapping chunks.
+4. **Embedding Generation:** Sentence Transformers converts the chunks into numerical vector embeddings.
+5. **Vector Indexing:** FAISS stores the embeddings and enables similarity-based retrieval.
+6. **Question Processing:** The user's question is converted into an embedding.
+7. **Semantic Retrieval:** FAISS retrieves the most relevant chunks from the selected indexed documents.
+8. **Answer Generation:** The retrieved context is passed to the LLM, which generates a context-aware response.
+9. **Source Display:** The frontend displays the generated answer along with its source documents.
 
-```text
-        Document Upload
-               |
-               v
-        Text Extraction
-               |
-               v
-          Chunking
-               |
-               v
-      Embedding Generation
-               |
-               v
-         FAISS Index
-               |
-               |
-       User Query
-               |
-               v
-      Query Embedding
-               |
-               v
-      Similarity Search
-               |
-               v
-     Relevant Context
-               |
-               v
-       Gemini LLM
-               |
-               v
-      Generated Answer
-      + Source References
-```
+---
 
-## 📂 Project Structure
-
-The backend is organized to support modular development as the project grows.
+## Project Structure
 
 ```text
-Document-Intelligence-Platform/
+Document-Intelligence-Plateform/
 │
 ├── backend/
-│   ├── main.py
 │   ├── app/
-│   │   ├── api/
-│   │   ├── core/
+│   │   ├── database/
+│   │   │   ├── __init__.py
+│   │   │   └── database.py
+│   │   │
 │   │   ├── services/
-│   │   ├── schemas/
+│   │   │   ├── chunker.py
+│   │   │   ├── embedder.py
+│   │   │   ├── vector_store.py
+│   │   │   ├── rag_pipeline.py
+│   │   │   └── llm.py
+│   │   │
 │   │   ├── models/
-│   │   └── database/
+│   │   ├── schemas/
+│   │   └── document_processor.py
 │   │
+│   ├── main.py
 │   ├── requirements.txt
-│   └── venv/
+│   └── .env
 │
 ├── frontend/
+│   └── app.py
 │
-├── README.md
-└── .gitignore
+├── database/
+│   └── documents.db
+│
+├── uploaded_documents/
+│
+├── .gitignore
+└── README.md
 ```
 
-*Note: The structure represents the intended modular organization and will evolve as additional components are implemented.*
+---
 
-## ⚙️ Installation and Setup
+## Getting Started
+
+### Prerequisites
+
+Make sure you have installed:
+
+- Python 3.10 or later
+- Git
+- VS Code (recommended)
 
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/Document-Intelligence-Platform.git
+git clone https://github.com/Sneh-05/Document-Intelligence-Plateform.git
 ```
-
-### 2. Navigate to the Backend
 
 ```bash
-cd Document-Intelligence-Platform/backend
+cd Document-Intelligence-Plateform
 ```
 
-### 3. Create a Virtual Environment
+### 2. Create a Virtual Environment
 
 ```bash
 python -m venv venv
 ```
 
-### 4. Activate the Virtual Environment
+Activate it on Windows:
 
-**Windows:**
-
-```bash
+```powershell
 venv\Scripts\activate
 ```
 
-**Linux/macOS:**
+### 3. Install Backend Dependencies
 
 ```bash
-source venv/bin/activate
-```
-
-### 5. Install Dependencies
-
-```bash
+cd backend
 pip install -r requirements.txt
 ```
 
-### 6. Run the FastAPI Server
+### 4. Configure Environment Variables
+
+Create a `.env` file inside the `backend` directory.
+
+Add your LLM API configuration:
+
+```env
+API_URL=your_llm_api_endpoint
+MODEL_NAME=your_model_name
+API_KEY=your_api_key
+```
+
+**Important:** Replace the placeholder values with your actual API credentials. Never commit your `.env` file or expose API keys publicly.
+
+### 5. Start the Backend
+
+From the `backend` directory, run:
 
 ```bash
 uvicorn main:app --reload
 ```
 
-The backend server will start at:
+Backend URL:
 
 ```text
 http://127.0.0.1:8000
 ```
 
-## 📖 API Documentation
+Interactive API documentation:
 
-FastAPI automatically generates interactive API documentation.
+```text
+http://127.0.0.1:8000/docs
+```
 
-Once the server is running, access:
+### 6. Start the Frontend
 
-- **Swagger UI:** http://127.0.0.1:8000/docs
-- **ReDoc:** http://127.0.0.1:8000/redoc
-- **Root Endpoint:** http://127.0.0.1:8000/
+Open another terminal from the project root, activate the virtual environment, and run:
 
-## 🎯 Project Objectives
+```bash
+streamlit run frontend/app.py
+```
 
-- Understand and implement REST APIs using FastAPI.
-- Develop a custom Retrieval-Augmented Generation pipeline.
-- Explore document processing and semantic search.
-- Understand vector embeddings and similarity search.
-- Integrate Large Language Models into backend applications.
-- Build a modular and scalable AI-powered application.
-
-## 🔮 Future Enhancements
-
-- Support additional document formats.
-- Implement authentication and user-specific document storage.
-- Improve retrieval accuracy through advanced chunking strategies.
-- Add conversation history for document-based interactions.
-- Implement document-level access control.
-- Build an interactive Streamlit frontend.
-
-## 👩‍💻 Development Approach
-
-This project is being developed incrementally, starting with FastAPI fundamentals and progressing towards a complete custom RAG-based document intelligence system.
-
-The primary focus is on understanding the underlying concepts and implementing the core components rather than depending entirely on pre-built AI frameworks.
+The frontend will open in your browser.
 
 ---
 
-**Made with Python, FastAPI, and AI.**
+## API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/` | Welcome endpoint |
+| GET | `/health` | Check backend health |
+| POST | `/upload` | Upload and extract document content |
+| GET | `/documents` | Retrieve all stored documents |
+| POST | `/documents/{document_id}/index` | Index a document for semantic search |
+| POST | `/query` | Ask questions using RAG |
+| DELETE | `/documents/{document_id}` | Delete a document |
+
+### Example: Query Request
+
+```json
+{
+  "query": "What is the purpose of this document?",
+  "document_ids": [1, 2]
+}
+```
+
+To search across all indexed documents, provide the query without a document ID or document ID list.
+
+---
+
+## Important Implementation Notes
+
+- Document metadata is stored in SQLite.
+- Uploaded original files are stored in the `uploaded_documents` directory.
+- FAISS currently maintains vector indexes in memory. The vector index is rebuilt through document indexing after a backend restart.
+- The LLM generates responses using the retrieved document context.
+- Only indexed documents are available for question answering.
+
+---
+
+## Contributors
+
+| Name | Role |
+|---|---|
+| **Sneha** | Team Lead |
+| **Sandli** | Contributor |
+| **Archita** | Contributor |
+
+---
+
+## Future Enhancements
+
+- Persistent FAISS vector storage.
+- Support for additional document formats.
+- Improved document summarization.
+- Advanced conversational memory.
+- User authentication and role-based access.
+- Enhanced retrieval and ranking strategies.
+- Cloud deployment and scalability.
+
+---
+
+## License
+
+This project is developed for educational and learning purposes. Licensing terms can be added as the project evolves.
+
+---
+
+**NEXOR – Making Documents Intelligent.**

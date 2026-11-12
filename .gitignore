@@ -7,3 +7,11 @@ __pycache__/
 .vscode/
 # Uploaded documents
 uploaded_documents/
+
+# Database files
+database/*.db
+database/*.db-shm
+database/*.db-wal
+
+# Uploaded documents
+uploaded_documents/

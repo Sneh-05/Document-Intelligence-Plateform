@@ -3,7 +3,9 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from pydantic import BaseModel, Field
 from typing import Literal
 from uuid import uuid4
+from pathlib import Path
 
+from app.services.vector_store import remove_document_from_index
 from app.document_processor import extract_text
 from app.services.rag_pipeline import index_document, ask_question
 
@@ -12,7 +14,8 @@ from app.database.database import (
     insert_document,
     get_all_documents,
     get_document_by_id,
-    update_document_status
+    update_document_status,
+    delete_document
 )
 
 import os
@@ -30,9 +33,6 @@ app = FastAPI(
 
 # Initialize SQLite database
 init_db()
-
-# Currently indexed document in FAISS
-active_document_id = None
 
 
 
@@ -56,8 +56,9 @@ class IndexRequest(BaseModel):
 
 
 class QueryRequest(BaseModel):
-    document_id: int
     query: str = Field(min_length=1, max_length=2000)
+    document_id: int | None = None
+    document_ids: list[int] | None = None
 
 
 
@@ -82,7 +83,6 @@ def health_check():
     }
 
 
-
 # DOCUMENT METADATA ROUTES
 
 
@@ -91,7 +91,6 @@ def get_documents():
 
     all_documents = get_all_documents()
 
-    # Return only public document information
     public_documents = [
         {
             "id": doc["id"],
@@ -107,6 +106,64 @@ def get_documents():
         "documents": public_documents
     }
 
+
+@app.delete("/documents/{document_id}")
+def delete_uploaded_document(document_id: int):
+
+    # Step 1: Find the document in SQLite
+    document = get_document_by_id(document_id)
+
+    if document is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found."
+        )
+
+    try:
+        # Step 2: Validate and delete the physical file
+        file_path = document.get("file_path")
+
+        if file_path:
+            upload_directory = Path(UPLOAD_DIR).resolve()
+            stored_file = Path(file_path).resolve()
+
+            # Prevent deletion outside the upload directory
+            if not stored_file.is_relative_to(upload_directory):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid document file path."
+                )
+
+            if stored_file.exists():
+                stored_file.unlink()
+
+        # Step 3: Remove document chunks and embeddings from FAISS
+        remove_document_from_index(str(document_id))
+
+        # Step 4: Delete document metadata from SQLite
+        deleted_document = delete_document(document_id)
+
+        if deleted_document is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Document not found."
+            )
+
+        return {
+            "document_id": document_id,
+            "filename": document["title"],
+            "status": "deleted",
+            "message": "Document and its indexed data deleted successfully."
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception as error:
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected error occurred while deleting the document."
+        ) from error
 
 @app.post(
     "/documents",
@@ -130,7 +187,6 @@ def create_document(document: DocumentCreate):
         ) from error
 
 
-
 # DOCUMENT INDEXING ROUTE
 
 
@@ -139,7 +195,6 @@ def index_uploaded_document(
     document_id: int,
     request: IndexRequest
 ):
-    global active_document_id
 
     document = get_document_by_id(document_id)
 
@@ -150,14 +205,15 @@ def index_uploaded_document(
         )
 
     try:
-        result = index_document(request.text)
+        result = index_document(
+            document_id=str(document_id),
+            text=request.text
+        )
 
         update_document_status(
             document_id,
             "processed"
         )
-
-        active_document_id = document_id
 
         return {
             "document_id": document_id,
@@ -187,32 +243,76 @@ def index_uploaded_document(
 
 
 
-# AI QUESTION-ANSWERING ROUTE
+# MULTI-DOCUMENT QUESTION-ANSWERING ROUTE
 
 
 @app.post("/query")
-def query_document(request: QueryRequest):
+def query_documents(request: QueryRequest):
 
-    document = get_document_by_id(request.document_id)
-
-    if document is None:
+    if (
+        request.document_id is not None
+        and request.document_ids is not None
+    ):
         raise HTTPException(
-            status_code=404,
-            detail="Document not found."
+            status_code=422,
+            detail="Provide either document_id or document_ids, not both."
         )
 
-    if active_document_id != request.document_id:
-        raise HTTPException(
-            status_code=409,
-            detail="This document is not currently indexed. Please index it first."
-        )
+    selected_ids = None
+
+    if request.document_id is not None:
+        selected_ids = [request.document_id]
+
+    elif request.document_ids is not None:
+        selected_ids = request.document_ids
+
+    # Validate selected document IDs
+    if selected_ids is not None:
+
+        if not selected_ids:
+            raise HTTPException(
+                status_code=422,
+                detail="At least one document ID is required."
+            )
+
+        if len(selected_ids) != len(set(selected_ids)):
+            raise HTTPException(
+                status_code=422,
+                detail="Duplicate document IDs are not allowed."
+            )
+
+        for doc_id in selected_ids:
+
+            document = get_document_by_id(doc_id)
+
+            if document is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Document {doc_id} not found."
+                )
+
+            if document["status"] != "processed":
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Document {doc_id} has not been indexed."
+                )
 
     try:
-        result = ask_question(request.query)
+        result = ask_question(
+            question=request.query,
+            document_ids=(
+                [str(doc_id) for doc_id in selected_ids]
+                if selected_ids is not None
+                else None
+            )
+        )
 
         return {
-            "document_id": request.document_id,
             "question": request.query,
+            "searched_document_ids": (
+                selected_ids if selected_ids is not None
+                else "all indexed documents"
+            ),
             "answer": result["answer"],
             "sources": result["sources"]
         }
@@ -323,7 +423,7 @@ async def upload_document(file: UploadFile = File(...)):
                 detail="Empty files are not allowed."
             )
 
-        # Extract text
+        # Extract document text
         extracted_text = extract_text(file_path)
 
         if not extracted_text or not extracted_text.strip():
@@ -332,7 +432,7 @@ async def upload_document(file: UploadFile = File(...)):
                 detail="No readable text found in the document."
             )
 
-        # Save document metadata in SQLite
+        # Store document metadata in SQLite
         new_document = insert_document(
             title=safe_filename,
             file_type=extension.lstrip("."),
